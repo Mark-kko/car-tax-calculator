@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Turkey Car Import Tax Calculator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  
+  <!-- Configure Tailwind -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#165DFF',
+            secondary: '#36CFC9',
+            accent: '#FF7D00',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .touch-friendly {
+        touch-action: manipulation;
+      }
+      .input-mobile {
+        @apply w-full px-4 py-3 border border-gray-300 rounded-lg text-right text-base;
+      }
+      .rate-input {
+        @apply w-16 px-2 py-2 border border-gray-300 rounded text-right;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 font-sans text-gray-800 min-h-screen">
+  <div class="container mx-auto px-4 py-6 max-w-2xl">
+    <!-- Header Section -->
+    <header class="mb-6 text-center">
+      <div class="inline-block p-3 bg-primary/10 rounded-full mb-3">
+        <i class="fa fa-car text-primary text-2xl"></i>
+      </div>
+      <h1 class="text-[clamp(1.5rem,6vw,2rem)] font-bold text-gray-800 mb-2">Car Import Tax Calculator</h1>
+      <p class="text-gray-600 text-sm px-2">Calculate Turkey car import taxes with easy rate adjustments</p>
+    </header>
+
+    <!-- Calculator Card -->
+    <div class="bg-white rounded-xl shadow-md overflow-hidden mb-6">
+      <div class="p-4">
+        <!-- Mobile-friendly grid layout instead of table -->
+        <div class="space-y-4">
+          <!-- FOB Input -->
+          <div class="border-b border-gray-100 pb-4">
+            <div class="flex justify-between items-center mb-1">
+              <div class="flex items-center">
+                <i class="fa fa-tag text-primary mr-2"></i>
+                <span class="font-medium">FOB (Car Value)</span>
+              </div>
+            </div>
+            <input type="number" id="fob" value="40000" 
+                  class="input-mobile focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none">
+          </div>
+
+          <!-- CIF Input -->
+          <div class="border-b border-gray-100 pb-4">
+            <div class="flex justify-between items-center mb-1">
+              <div class="flex items-center">
+                <i class="fa fa-ship text-primary mr-2"></i>
+                <span class="font-medium">CIF (Shipping)</span>
+              </div>
+            </div>
+            <input type="number" id="cif" value="1000" 
+                  class="input-mobile focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none">
+          </div>
+
+          <!-- Import Duty -->
+          <div class="border-b border-gray-100 pb-4">
+            <div class="flex justify-between items-center mb-1">
+              <div class="flex items-center">
+                <i class="fa fa-percent text-gray-600 mr-2"></i>
+                <span class="font-medium">Import Duty</span>
+              </div>
+              <div class="flex items-center">
+                <input type="number" id="importDutyRate" value="10" min="0" max="100" step="0.1" 
+                      class="rate-input focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none">
+                <span class="ml-1 text-gray-500">%</span>
+              </div>
+            </div>
+            <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
+              <span class="text-sm text-gray-500">Calculated:</span>
+              <span class="font-medium" id="importDuty"></span>
+            </div>
+          </div>
+
+          <!-- China Extra Tariff -->
+          <div class="border-b border-gray-100 pb-4">
+            <div class="flex justify-between items-center mb-1">
+              <div class="flex items-center">
+                <i class="fa fa-percent text-gray-600 mr-2"></i>
+                <span class="font-medium">China Extra Tariff</span>
+              </div>
+              <div class="flex items-center">
+                <input type="number" id="extraTariffRate" value="40" min="0" max="100" step="0.1" 
+                      class="rate-input focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none">
+                <span class="ml-1 text-gray-500">%</span>
+              </div>
+            </div>
+            <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
+              <span class="text-sm text-gray-500">Calculated:</span>
+              <span class="font-medium" id="extraTariff"></span>
+            </div>
+          </div>
+
+          <!-- Subtotal A -->
+          <div class="border-b border-gray-100 pb-4">
+            <div class="flex justify-between items-center mb-1">
+              <div class="flex items-center">
+                <i class="fa fa-calculator text-green-600 mr-2"></i>
+                <span class="font-semibold">Subtotal A</span>
+              </div>
+            </div>
+            <div class="flex justify-between items-center bg-green-50 p-3 rounded-lg">
+              <span class="text-sm text-gray-500">FOB + CIF + duties</span>
+              <span class="font-semibold" id="subtotal1"></span>
+            </div>
+          </div>
+
+          <!-- ÖTV Special Tax -->
+          <div class="border-b border-gray-100 pb-4">
+            <div class="flex justify-between items-center mb-1">
+              <div class="flex items-center">
+                <i class="fa fa-percent text-gray-600 mr-2"></i>
+                <span class="font-medium">ÖTV Special Tax</span>
+              </div>
+              <div class="flex items-center">
+                <input type="number" id="otvRate" value="75" min="0" max="100" step="0.1" 
+                      class="rate-input focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none">
+                <span class="ml-1 text-gray-500">%</span>
+              </div>
+            </div>
+            <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
+              <span class="text-sm text-gray-500">Calculated:</span>
+              <span class="font-medium" id="otv"></span>
+            </div>
+          </div>
+
+          <!-- Subtotal B -->
+          <div class="border-b border-gray-100 pb-4">
+            <div class="flex justify-between items-center mb-1">
+              <div class="flex items-center">
+                <i class="fa fa-calculator text-green-600 mr-2"></i>
+                <span class="font-semibold">Subtotal B</span>
+              </div>
+            </div>
+            <div class="flex justify-between items-center bg-green-50 p-3 rounded-lg">
+              <span class="text-sm text-gray-500">Subtotal A + ÖTV</span>
+              <span class="font-semibold" id="subtotal2"></span>
+            </div>
+          </div>
+
+          <!-- KDV VAT -->
+          <div class="border-b border-gray-100 pb-4">
+            <div class="flex justify-between items-center mb-1">
+              <div class="flex items-center">
+                <i class="fa fa-percent text-gray-600 mr-2"></i>
+                <span class="font-medium">KDV VAT</span>
+              </div>
+              <div class="flex items-center">
+                <input type="number" id="kdvRate" value="20" min="0" max="100" step="0.1" 
+                      class="rate-input focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none">
+                <span class="ml-1 text-gray-500">%</span>
+              </div>
+            </div>
+            <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
+              <span class="text-sm text-gray-500">Calculated:</span>
+              <span class="font-medium" id="kdv"></span>
+            </div>
+          </div>
+
+          <!-- Total Tax-Included Price -->
+          <div class="border-b border-gray-100 pb-4">
+            <div class="flex justify-between items-center mb-1">
+              <div class="flex items-center">
+                <i class="fa fa-money text-primary mr-2"></i>
+                <span class="font-bold">Total Tax-Included Price</span>
+              </div>
+            </div>
+            <div class="flex justify-between items-center bg-primary/5 p-3 rounded-lg">
+              <span class="text-sm text-gray-500">Final cost before retail</span>
+              <span class="font-bold text-primary text-lg" id="totalTaxIncluded"></span>
+            </div>
+          </div>
+
+          <!-- Suggested Retail Price -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <div class="flex items-center">
+                <i class="fa fa-shopping-cart text-accent mr-2"></i>
+                <span class="font-medium">Retail Price</span>
+              </div>
+              <div class="flex items-center">
+                <input type="number" id="retailRate" value="8" min="0" max="100" step="0.1" 
+                      class="rate-input focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none">
+                <span class="ml-1 text-gray-500">%</span>
+              </div>
+            </div>
+            <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
+              <span class="text-sm text-gray-500">Total + retail margin</span>
+              <span class="font-medium text-accent" id="retail"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info Section (Collapsible on mobile) -->
+    <div class="bg-white rounded-xl shadow-md overflow-hidden mb-6">
+      <button id="infoToggle" class="w-full flex justify-between items-center p-4 text-left font-semibold">
+        <div class="flex items-center">
+          <i class="fa fa-info-circle text-primary mr-2"></i>
+          <span>Understanding the Calculations</span>
+        </div>
+        <i class="fa fa-chevron-down text-gray-400 transition-transform duration-300" id="infoIcon"></i>
+      </button>
+      <div id="infoContent" class="hidden px-4 pb-4">
+        <ul class="space-y-2 text-gray-600 text-sm">
+          <li class="flex items-start">
+            <i class="fa fa-check-circle text-secondary mt-1 mr-2"></i>
+            <span><strong>FOB:</strong> Value of the car at the port of origin</span>
+          </li>
+          <li class="flex items-start">
+            <i class="fa fa-check-circle text-secondary mt-1 mr-2"></i>
+            <span><strong>CIF:</strong> Shipping, insurance, and freight costs</span>
+          </li>
+          <li class="flex items-start">
+            <i class="fa fa-check-circle text-secondary mt-1 mr-2"></i>
+            <span><strong>Import Duty:</strong> Tax on FOB + CIF value</span>
+          </li>
+          <li class="flex items-start">
+            <i class="fa fa-check-circle text-secondary mt-1 mr-2"></i>
+            <span><strong>ÖTV:</strong> Special Consumption Tax on subtotal</span>
+          </li>
+          <li class="flex items-start">
+            <i class="fa fa-check-circle text-secondary mt-1 mr-2"></i>
+            <span><strong>KDV:</strong> Value Added Tax on final subtotal</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="text-center text-gray-500 text-xs mt-8 pb-6">
+      <p>© 2023 Car Import Tax Calculator | For informational purposes only</p>
+    </footer>
+  </div>
+
+  <script>
+    // Toggle information section
+    const infoToggle = document.getElementById('infoToggle');
+    const infoContent = document.getElementById('infoContent');
+    const infoIcon = document.getElementById('infoIcon');
+    
+    infoToggle.addEventListener('click', () => {
+      infoContent.classList.toggle('hidden');
+      infoIcon.classList.toggle('rotate-180');
+    });
+
+    // Calculation function
+    function calculate() {
+      // Get input values
+      const fob = parseFloat(document.getElementById('fob').value) || 0;
+      const cif = parseFloat(document.getElementById('cif').value) || 0;
+      
+      // Get rate values (convert percentage to decimal)
+      const importDutyRate = parseFloat(document.getElementById('importDutyRate').value) / 100 || 0;
+      const extraTariffRate = parseFloat(document.getElementById('extraTariffRate').value) / 100 || 0;
+      const otvRate = parseFloat(document.getElementById('otvRate').value) / 100 || 0;
+      const kdvRate = parseFloat(document.getElementById('kdvRate').value) / 100 || 0;
+      const retailRate = parseFloat(document.getElementById('retailRate').value) / 100 || 0;
+      
+      // Calculate tax components
+      const base = fob + cif;
+      const importDuty = base * importDutyRate;
+      const extraTariff = base * extraTariffRate;
+      const subtotal1 = base + importDuty + extraTariff;
+      const otv = subtotal1 * otvRate;
+      const subtotal2 = subtotal1 + otv;
+      const kdv = subtotal2 * kdvRate;
+      const totalTaxIncluded = subtotal2 + kdv;
+      const retail = totalTaxIncluded * (1 + retailRate);
+
+      // Format numbers with 2 decimal places and add USD symbol
+      const formatCurrency = (value) => {
+        return '$' + value.toFixed(2);
+      };
+
+      // Update the DOM with formatted values
+      const elements = {
+        importDuty,
+        extraTariff,
+        subtotal1,
+        otv,
+        subtotal2,
+        kdv,
+        totalTaxIncluded,
+        retail
+      };
+
+      // Add animation when values update
+      Object.keys(elements).forEach(key => {
+        const element = document.getElementById(key);
+        element.classList.add('scale-110', 'text-primary');
+        element.innerText = formatCurrency(elements[key]);
+        
+        setTimeout(() => {
+          element.classList.remove('scale-110', 'text-primary');
+        }, 300);
+      });
+    }
+
+    // Add event listeners to all input fields
+    document.querySelectorAll('input').forEach(input => {
+      // Make inputs mobile-friendly with proper touch handling
+      input.classList.add('touch-friendly');
+      
+      // Update on input
+      input.addEventListener('input', calculate);
+      
+      // Add visual feedback on focus
+      input.addEventListener('focus', () => {
+        input.parentElement.classList.add('bg-primary/5');
+      });
+      input.addEventListener('blur', () => {
+        input.parentElement.classList.remove('bg-primary/5');
+      });
+    });
+
+    // Initial calculation on page load
+    window.onload = calculate;
+  </script>
+</body>
+</html>
