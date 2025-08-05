@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Dynamic Tax Calculator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  
+  <!-- 配置Tailwind -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#165DFF',
+            secondary: '#36CFC9',
+            accent: '#FF7D00',
+            reverse: '#722ED1',
+            danger: '#F53F3F',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .touch-friendly {
+        touch-action: manipulation;
+      }
+      .input-mobile {
+        @apply w-full px-4 py-3 border border-gray-300 rounded-lg text-base;
+      }
+      .tax-item {
+        @apply bg-white border border-gray-200 rounded-lg p-4 mb-3 relative;
+      }
+      .tax-input {
+        @apply px-3 py-2 border border-gray-300 rounded-lg text-right;
+      }
+      .delete-btn {
+        @apply absolute top-2 right-2 text-danger hover:text-danger/80 p-1.5 rounded-full hover:bg-danger/10 transition-colors;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 font-sans text-gray-800 min-h-screen">
+  <div class="container mx-auto px-4 py-6 max-w-2xl">
+    <!-- 头部区域 -->
+    <header class="mb-6 text-center">
+      <div class="inline-block p-3 bg-primary/10 rounded-full mb-3">
+        <i class="fa fa-calculator text-primary text-2xl"></i>
+      </div>
+      <h1 class="text-[clamp(1.5rem,6vw,2rem)] font-bold text-gray-800 mb-2">Tax Calculator</h1>
+      <p class="text-gray-600 text-sm px-2">动态税率管理 + 正向/倒推计算</p>
+      
+      <!-- 模式切换按钮 -->
+      <div class="mt-4 flex justify-center">
+        <button id="modeToggle" class="flex items-center space-x-2 bg-primary text-white px-4 py-2 rounded-full text-sm font-medium shadow-md">
+          <i class="fa fa-swap-right"></i>
+          <span id="modeText">切换到倒推模式</span>
+        </button>
+      </div>
+      <div id="modeIndicator" class="mt-2 text-xs text-primary font-medium">
+        当前模式：正向计算（输入FOB计算总价）
+      </div>
+    </header>
+
+    <!-- 基础价格输入 -->
+    <div class="bg-white rounded-xl shadow-md overflow-hidden mb-6 p-4">
+      <h3 class="font-semibold mb-4 pb-2 border-b border-gray-100">基础价格</h3>
+      
+      <!-- FOB (正向可输入，倒推为计算结果) -->
+      <div class="mb-4" id="fobContainer">
+        <div class="flex justify-between items-center mb-1">
+          <span class="font-medium">FOB (Car Value)</span>
+          <span id="fobModeBadge" class="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">可输入</span>
+        </div>
+        <input type="number" id="fob" value="40000" 
+              class="input-mobile focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none touch-friendly text-right">
+      </div>
+
+      <!-- CIF (始终可输入) -->
+      <div>
+        <div class="flex justify-between items-center mb-1">
+          <span class="font-medium">CIF (Shipping)</span>
+        </div>
+        <input type="number" id="cif" value="1000" 
+              class="input-mobile focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none touch-friendly text-right">
+      </div>
+    </div>
+
+    <!-- 税率管理区域 -->
+    <div class="bg-white rounded-xl shadow-md overflow-hidden mb-6">
+      <div class="p-4 border-b border-gray-100 flex justify-between items-center">
+        <h3 class="font-semibold">税率管理</h3>
+        <button id="addTaxBtn" class="flex items-center space-x-1 bg-primary text-white px-3 py-1.5 rounded-lg text-sm">
+          <i class="fa fa-plus text-xs"></i>
+          <span>添加税率</span>
+        </button>
+      </div>
+      
+      <div id="taxItemsContainer" class="p-4 space-y-2 max-h-96 overflow-y-auto pr-2">
+        <!-- 税率项将通过JS动态生成 -->
+      </div>
+    </div>
+
+    <!-- 零售加成 -->
+    <div class="bg-white rounded-xl shadow-md overflow-hidden mb-6 p-4">
+      <div class="flex justify-between items-center mb-1">
+        <span class="font-medium">零售加成比例</span>
+      </div>
+      <div class="flex items-center space-x-2">
+        <input type="number" id="retailRate" value="8" min="0" max="100" step="0.1" 
+              class="flex-1 tax-input focus:ring-2 focus:ring-accent/50 focus:border-accent outline-none touch-friendly">
+        <span class="text-gray-500">%</span>
+      </div>
+    </div>
+
+    <!-- 计算结果区域 -->
+    <div class="bg-white rounded-xl shadow-md overflow-hidden mb-6">
+      <div class="p-4 border-b border-gray-100">
+        <h3 class="font-semibold">计算结果</h3>
+      </div>
+      
+      <div class="p-4 space-y-4" id="resultsContainer">
+        <!-- 结果将通过JS动态生成 -->
+      </div>
+
+      <!-- 总含税价格 (正向为计算结果，倒推可输入) -->
+      <div class="p-4 border-t border-gray-100" id="totalContainer">
+        <div class="flex justify-between items-center mb-1">
+          <span class="font-bold">总含税价格</span>
+          <span id="totalModeBadge" class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">计算结果</span>
+        </div>
+        <div id="totalInputContainer">
+          <input type="number" id="totalTaxIncluded" value="" 
+                class="input-mobile focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none touch-friendly text-right bg-gray-100" disabled>
+        </div>
+      </div>
+
+      <!-- 零售价格 (正向为计算结果，倒推可输入) -->
+      <div class="p-4 border-t border-gray-100" id="retailContainer">
+        <div class="flex justify-between items-center mb-1">
+          <span class="font-medium">零售价格</span>
+          <span id="retailModeBadge" class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">计算结果</span>
+        </div>
+        <div id="retailInputContainer">
+          <input type="number" id="retail" value="" 
+                class="input-mobile focus:ring-2 focus:ring-accent/50 focus:border-accent outline-none touch-friendly text-right bg-gray-100" disabled>
+        </div>
+      </div>
+    </div>
+
+    <!-- 说明区域 (可折叠) -->
+    <div class="bg-white rounded-xl shadow-md overflow-hidden mb-6">
+      <button id="infoToggle" class="w-full flex justify-between items-center p-4 text-left font-semibold">
+        <div class="flex items-center">
+          <i class="fa fa-info-circle text-primary mr-2"></i>
+          <span>使用说明</span>
+        </div>
+        <i class="fa fa-chevron-down text-gray-400 transition-transform duration-300" id="infoIcon"></i>
+      </button>
+      <div id="infoContent" class="hidden px-4 pb-4">
+        <ul class="space-y-3 text-gray-600 text-sm">
+          <li class="font-medium">税率管理：</li>
+          <li class="flex items-start">
+            <i class="fa fa-check-circle text-secondary mt-1 mr-2"></i>
+            <span>点击"添加税率"按钮创建新的税率项</span>
+          </li>
+          <li class="flex items-start">
+            <i class="fa fa-check-circle text-secondary mt-1 mr-2"></i>
+            <span>每个税率项可以设置名称和百分比值</span>
+          </li>
+          <li class="flex items-start">
+            <i class="fa fa-check-circle text-secondary mt-1 mr-2"></i>
+            <span>点击删除图标可以移除不需要的税率项</span>
+          </li>
+          
+          <li class="font-medium text-primary mt-4">正向计算模式：</li>
+          <li class="flex items-start">
+            <i class="fa fa-check-circle text-primary mt-1 mr-2"></i>
+            <span>输入FOB（车价）和CIF（运费），系统计算总价</span>
+          </li>
+          
+          <li class="font-medium text-reverse mt-4">倒推计算模式：</li>
+          <li class="flex items-start">
+            <i class="fa fa-check-circle text-reverse mt-1 mr-2"></i>
+            <span>输入目标零售价格或总含税价格，反推所需FOB</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="text-center text-gray-500 text-xs mt-8 pb-6">
+      <p>© 2023 动态税率计算器 | 支持自定义税率结构</p>
+    </footer>
+  </div>
+
+  <script>
+    // 全局状态
+    let isReverseMode = false;
+    let taxItems = []; // 存储税率项数据
+    let taxItemCounter = 0; // 用于生成唯一ID
+    
+    // DOM元素
+    const modeToggle = document.getElementById('modeToggle');
+    const modeText = document.getElementById('modeText');
+    const modeIndicator = document.getElementById('modeIndicator');
+    const fobInput = document.getElementById('fob');
+    const cifInput = document.getElementById('cif');
+    const totalInput = document.getElementById('totalTaxIncluded');
+    const retailInput = document.getElementById('retail');
+    const retailRateInput = document.getElementById('retailRate');
+    const taxItemsContainer = document.getElementById('taxItemsContainer');
+    const resultsContainer = document.getElementById('resultsContainer');
+    const addTaxBtn = document.getElementById('addTaxBtn');
+    
+    // 模式标签
+    const fobModeBadge = document.getElementById('fobModeBadge');
+    const totalModeBadge = document.getElementById('totalModeBadge');
+    const retailModeBadge = document.getElementById('retailModeBadge');
+    
+    // 容器元素
+    const fobContainer = document.getElementById('fobContainer');
+    const totalContainer = document.getElementById('totalContainer');
+    const retailContainer = document.getElementById('retailContainer');
+
+    // 切换信息区域显示/隐藏
+    const infoToggle = document.getElementById('infoToggle');
+    const infoContent = document.getElementById('infoContent');
+    const infoIcon = document.getElementById('infoIcon');
+    
+    infoToggle.addEventListener('click', () => {
+      infoContent.classList.toggle('hidden');
+      infoIcon.classList.toggle('rotate-180');
+    });
+
+    // 初始化默认税率项
+    function initDefaultTaxes() {
+      // 清空现有项
+      taxItems = [];
+      taxItemCounter = 0;
+      
+      // 添加默认税率项
+      addTaxItem('进口税', 10);
+      addTaxItem('中国额外关税', 40);
+      addTaxItem('ÖTV特别税', 75);
+      addTaxItem('KDV增值税', 20);
+      
+      // 渲染税率项
+      renderTaxItems();
+    }
+
+    // 添加税率项
+    function addTaxItem(name, rate) {
+      const taxId = `tax-${taxItemCounter++}`;
+      taxItems.push({
+        id: taxId,
+        name: name || '新税率',
+        rate: rate || 0,
+        amount: 0 // 将在计算时更新
+      });
+    }
+
+    // 删除税率项
+    function removeTaxItem(id) {
+      // 确保至少保留一个税率项
+      if (taxItems.length <= 1) {
+        // 更友好的提示方式
+        const alertEl = document.createElement('div');
+        alertEl.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-danger text-white px-4 py-2 rounded-lg shadow-lg z-50';
+        alertEl.textContent = '至少需要保留一个税率项';
+        document.body.appendChild(alertEl);
+        
+        setTimeout(() => {
+          alertEl.classList.add('opacity-0', 'transition-opacity', 'duration-300');
+          setTimeout(() => alertEl.remove(), 300);
+        }, 2000);
+        return;
+      }
+      
+      taxItems = taxItems.filter(item => item.id !== id);
+      renderTaxItems();
+      calculate();
+    }
+
+    // 渲染所有税率项
+    function renderTaxItems() {
+      taxItemsContainer.innerHTML = '';
+      
+      taxItems.forEach(item => {
+        const taxItemEl = document.createElement('div');
+        taxItemEl.className = 'tax-item';
+        taxItemEl.innerHTML = `
+          <button class="delete-btn" data-tax-id="${item.id}">
+            <i class="fa fa-trash-o"></i>
+          </button>
+          <div class="mb-2">
+            <input type="text" value="${item.name}" 
+                  class="tax-input w-full mb-2 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none touch-friendly"
+                  placeholder="税率名称"
+                  data-tax-id="${item.id}"
+                  data-action="update-name">
+          </div>
+          <div class="flex items-center space-x-2">
+            <input type="number" value="${item.rate}" min="0" max="100" step="0.1"
+                  class="tax-input flex-1 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none touch-friendly"
+                  data-tax-id="${item.id}"
+                  data-action="update-rate">
+            <span class="text-gray-500">%</span>
+          </div>
+        `;
+        taxItemsContainer.appendChild(taxItemEl);
+      });
+      
+      // 为删除按钮绑定事件（使用事件委托更可靠）
+      document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const taxId = this.getAttribute('data-tax-id');
+          removeTaxItem(taxId);
+        });
+      });
+      
+      // 为税率名称输入框绑定事件
+      document.querySelectorAll('[data-action="update-name"]').forEach(input => {
+        input.addEventListener('change', function() {
+          const taxId = this.getAttribute('data-tax-id');
+          const name = this.value;
+          updateTaxName(taxId, name);
+        });
+      });
+      
+      // 为税率值输入框绑定事件
+      document.querySelectorAll('[data-action="update-rate"]').forEach(input => {
+        input.addEventListener('change', function() {
+          const taxId = this.getAttribute('data-tax-id');
+          const rate = this.value;
+          updateTaxRate(taxId, rate);
+        });
+      });
+    }
+
+    // 更新税率名称
+    function updateTaxName(id, name) {
+      const taxItem = taxItems.find(item => item.id === id);
+      if (taxItem) {
+        taxItem.name = name;
+        calculate();
+      }
+    }
+
+    // 更新税率值
+    function updateTaxRate(id, rate) {
+      const taxItem = taxItems.find(item => item.id === id);
+      if (taxItem) {
+        taxItem.rate = parseFloat(rate) || 0;
+        calculate();
+      }
+    }
+
+    // 渲染计算结果
+    function renderResults() {
+      resultsContainer.innerHTML = '';
+      
+      // 基础总价
+      const base = (parseFloat(fobInput.value) || 0) + (parseFloat(cifInput.value) || 0);
+      
+      // 添加基础总价行
+      const baseRow = document.createElement('div');
+      baseRow.className = 'flex justify-between items-center p-2 border-b border-gray-100';
+      baseRow.innerHTML = `
+        <span class="text-gray-600">FOB + CIF:</span>
+        <span class="font-medium">${formatCurrency(base)}</span>
+      `;
+      resultsContainer.appendChild(baseRow);
+      
+      // 添加各税率计算结果行
+      taxItems.forEach(item => {
+        const taxRow = document.createElement('div');
+        taxRow.className = 'flex justify-between items-center p-2 border-b border-gray-100';
+        taxRow.innerHTML = `
+          <span class="text-gray-600">${item.name} (${item.rate}%):</span>
+          <span class="font-medium">${formatCurrency(item.amount)}</span>
+        `;
+        resultsContainer.appendChild(taxRow);
+      });
+    }
+
+    // 切换计算模式
+    function toggleMode() {
+      isReverseMode = !isReverseMode;
+      
+      if (isReverseMode) {
+        // 切换到倒推模式
+        modeText.textContent = '切换到正向模式';
+        modeIndicator.textContent = '当前模式：倒推计算（输入目标价格反推FOB）';
+        modeIndicator.className = 'mt-2 text-xs text-reverse font-medium';
+        modeToggle.className = 'flex items-center space-x-2 bg-reverse text-white px-4 py-2 rounded-full text-sm font-medium shadow-md';
+        
+        // 更新FOB（变为计算结果）
+        fobInput.disabled = true;
+        fobInput.classList.add('bg-gray-100');
+        fobModeBadge.textContent = '计算结果';
+        fobModeBadge.className = 'text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded';
+        fobContainer.classList.add('bg-reverse/5');
+        
+        // 更新总价格（变为可输入）
+        totalInput.disabled = false;
+        totalInput.classList.remove('bg-gray-100');
+        totalModeBadge.textContent = '可输入';
+        totalModeBadge.className = 'text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded';
+        totalContainer.classList.add('bg-reverse/5');
+        
+        // 更新零售价格（变为可输入）
+        retailInput.disabled = false;
+        retailInput.classList.remove('bg-gray-100');
+        retailModeBadge.textContent = '可输入';
+        retailModeBadge.className = 'text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded';
+        retailContainer.classList.add('bg-reverse/5');
+      } else {
+        // 切换到正向模式
+        modeText.textContent = '切换到倒推模式';
+        modeIndicator.textContent = '当前模式：正向计算（输入FOB计算总价）';
+        modeIndicator.className = 'mt-2 text-xs text-primary font-medium';
+        modeToggle.className = 'flex items-center space-x-2 bg-primary text-white px-4 py-2 rounded-full text-sm font-medium shadow-md';
+        
+        // 更新FOB（变为可输入）
+        fobInput.disabled = false;
+        fobInput.classList.remove('bg-gray-100');
+        fobModeBadge.textContent = '可输入';
+        fobModeBadge.className = 'text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded';
+        fobContainer.classList.remove('bg-reverse/5');
+        
+        // 更新总价格（变为计算结果）
+        totalInput.disabled = true;
+        totalInput.classList.add('bg-gray-100');
+        totalModeBadge.textContent = '计算结果';
+        totalModeBadge.className = 'text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded';
+        totalContainer.classList.remove('bg-reverse/5');
+        
+        // 更新零售价格（变为计算结果）
+        retailInput.disabled = true;
+        retailInput.classList.add('bg-gray-100');
+        retailModeBadge.textContent = '计算结果';
+        retailModeBadge.className = 'text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded';
+        retailContainer.classList.remove('bg-reverse/5');
+      }
+      
+      // 重新计算
+      calculate();
+    }
+
+    // 格式化货币显示
+    function formatCurrency(value) {
+      return '$' + value.toFixed(2);
+    }
+
+    // 计算函数（支持正向和倒推）
+    function calculate() {
+      // 获取基础值
+      const cif = parseFloat(cifInput.value) || 0;
+      const retailRate = parseFloat(retailRateInput.value) / 100 || 0;
+      
+      // 计算税率乘积因子（用于倒推计算）
+      let taxFactor = 1;
+      taxItems.forEach(item => {
+        taxFactor *= (1 + item.rate / 100);
+      });
+
+      let fob, totalTaxIncluded, retail;
+      
+      if (!isReverseMode) {
+        // 正向计算：从FOB计算到零售价格
+        fob = parseFloat(fobInput.value) || 0;
+        let currentTotal = fob + cif;
+        
+        // 计算每项税率的金额
+        taxItems.forEach(item => {
+          const taxAmount = currentTotal * (item.rate / 100);
+          item.amount = taxAmount;
+          currentTotal += taxAmount;
+        });
+        
+        totalTaxIncluded = currentTotal;
+        retail = totalTaxIncluded * (1 + retailRate);
+      } else {
+        // 倒推计算：从目标价格反推FOB
+        // 优先使用零售价格，如果未输入则使用总含税价格
+        const retailValue = parseFloat(retailInput.value) || 0;
+        const totalValue = parseFloat(totalInput.value) || 0;
+        
+        if (retailValue > 0) {
+          // 从零售价格倒推
+          totalTaxIncluded = retailValue / (1 + retailRate);
+          retail = retailValue;
+        } else if (totalValue > 0) {
+          // 从总含税价格倒推
+          totalTaxIncluded = totalValue;
+          retail = totalTaxIncluded * (1 + retailRate);
+        } else {
+          // 没有输入目标价格时的默认值
+          totalTaxIncluded = 0;
+          retail = 0;
+        }
+        
+        // 计算FOB
+        fob = (totalTaxIncluded / taxFactor) - cif;
+        // 确保FOB不为负数
+        fob = Math.max(0, fob);
+        
+        // 计算每项税率的金额（使用倒推得到的FOB）
+        let currentTotal = fob + cif;
+        taxItems.forEach(item => {
+          const taxAmount = currentTotal * (item.rate / 100);
+          item.amount = taxAmount;
+          currentTotal += taxAmount;
+        });
+      }
+      
+      // 更新DOM显示
+      fobInput.value = fob.toFixed(2);
+      totalInput.value = totalTaxIncluded.toFixed(2);
+      retailInput.value = retail.toFixed(2);
+      
+      // 渲染结果
+      renderResults();
+      
+      // 数值变化动画
+      [fobInput, totalInput, retailInput].forEach(el => {
+        el.classList.add('scale-110', isReverseMode ? 'text-reverse' : 'text-primary');
+        setTimeout(() => {
+          el.classList.remove('scale-110', isReverseMode ? 'text-reverse' : 'text-primary');
+        }, 300);
+      });
+    }
+
+    // 事件监听
+    modeToggle.addEventListener('click', toggleMode);
+    addTaxBtn.addEventListener('click', () => {
+      addTaxItem();
+      renderTaxItems();
+      calculate();
+    });
+    
+    // 为基础输入添加事件监听
+    [fobInput, cifInput, retailInput, totalInput, retailRateInput].forEach(input => {
+      input.addEventListener('input', calculate);
+      
+      // 焦点样式
+      input.addEventListener('focus', () => {
+        if (!input.disabled) {
+          input.parentElement.classList.add('bg-primary/5');
+        }
+      });
+      input.addEventListener('blur', () => {
+        input.parentElement.classList.remove('bg-primary/5');
+      });
+    });
+
+    // 初始化
+    window.onload = () => {
+      initDefaultTaxes();
+      calculate();
+    };
+  </script>
+</body>
+</html>
